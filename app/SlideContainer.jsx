@@ -1,6 +1,6 @@
 "use client"
 import React, {  useRef } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card } from '../components/ui/card';
 
 // PowerPoint dimensions (standard 16:9 presentation)
 const SLIDE_WIDTH = 960;  // 10 inches * 96 DPI

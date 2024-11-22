@@ -1,8 +1,8 @@
 "use client"
 import React, { useState, useEffect, useRef } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Toggle } from '@/components/ui/toggle';
+import { Card } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Toggle } from '../../components/ui/toggle';
 import { AlignLeft, AlignCenter, AlignRight, AlignJustify, GripHorizontal } from 'lucide-react';
 
 // PowerPoint dimensions (standard 16:9)

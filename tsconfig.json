@@ -1,5 +1,5 @@
 {
-  "compilerOptions": {
+  /* "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -18,10 +18,46 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    } */
+  "compilerOptions": {
+    "strict": false, // Turn off strict mode
+    "noImplicitAny": false, // Allow 'any' types
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "incremental": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+    //"suppressImplicitAnyIndexErrors": true // Suppress specific errors
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/page.jsx"],
-  "exclude": ["node_modules"]
+  "paths": {
+    "@/*": [
+      "./*"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app/page.jsx"
+, "app/texteditor5/page.jsx", "app/texteditor6/page.jsx", "app/texteditor7/page.jsx"  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

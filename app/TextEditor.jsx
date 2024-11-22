@@ -1,10 +1,10 @@
 "use client"
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 
-import { Toggle } from '@/components/ui/toggle';
+import { Toggle } from '../components/ui/toggle';
 import { AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 
 const TextEditor = () => {
