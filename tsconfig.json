@@ -56,7 +56,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "app/page.jsx"
-, "app/texteditor5/page.jsx", "app/texteditor6/page.jsx", "app/texteditor7/page.jsx"  ],
+, "app/texteditor5/page.jsx", "app/texteditor6/page.jsx", "app/texteditor7/page.jsx", "app/texteditor8/page.jsx"  ],
   "exclude": [
     "node_modules"
   ]
