@@ -665,7 +665,7 @@ const SlideThumbnail = ({ slide, isActive, onClick }) => {
   
   return (
     <div
-      className={`relative cursor-pointer mb-2 ${
+      className={`relative cursor-pointer mb-2 rounded-lg overflow-hidden ${
         isActive ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'
       }`}
       onClick={onClick}
