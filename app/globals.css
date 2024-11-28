@@ -70,3 +70,25 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+
+.transparent-container {
+  background-color: rgba(255, 255, 255, 0); /* Transparent background */
+}
+
+.transparent-container::-webkit-scrollbar {
+  width: 0; /* Hide scrollbar by default */
+}
+
+.transparent-container:hover::-webkit-scrollbar {
+  width: 3px; /* Show thin scrollbar on hover */
+}
+
+.transparent-container::-webkit-scrollbar-track {
+  background: transparent; /* Transparent track background */
+}
+
+.transparent-container::-webkit-scrollbar-thumb {
+  background: rgba(192, 192, 192, 0.5); /* Very light scrollbar thumb color */
+  border-radius: 3px; /* Rounded corners for the scrollbar thumb */
+}

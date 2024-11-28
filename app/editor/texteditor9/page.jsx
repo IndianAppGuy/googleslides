@@ -1,8 +1,8 @@
 "use client"
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Toggle } from '../../components/ui/toggle';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Toggle } from '../../../components/ui/toggle';
 import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Type, Trash, Download, Plus, Image as ImageIcon
@@ -157,136 +157,98 @@ const constrainPosition = (x, y, width, height) => ({
 
 // TextElement Component
 const TextElement = ({
-  id,
-  element,
-  isSelected,
-  onSelect,
-  onUpdate,
-  onPositionChange,
-  isPreview = false,
-  scale = 1  // Add scale prop
-}) => {
-    const [isDragging, setIsDragging] = useState(false);
+    id,
+    element,
+    isSelected,
+    onSelect,
+    onUpdate,
+    onPositionChange
+  }) => {
     const elementRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const dragStartPos = useRef({ x: 0, y: 0 });
+    const dimensionsRef = useRef(calculateTextDimensions(element, SLIDE_WIDTH));
+
+    // Text element style calculation
+    const getTextStyle = () => {
+      const dimensions = dimensionsRef.current;
+      return {
+        position: 'absolute',
+        left: `${element.position.x}px`,
+        top: `${element.position.y}px`,
+        width: `${dimensions.width}px`,
+        height: `${dimensions.height}px`,
+        fontFamily: element.style.fontFace,
+        fontSize: `${element.style.fontSize}px`,
+        fontWeight: element.style.bold ? 'bold' : 'normal',
+        fontStyle: element.style.italic ? 'italic' : 'normal',
+        textDecoration: [
+          element.style.underline ? 'underline' : '',
+          element.style.strike ? 'line-through' : ''
+        ].filter(Boolean).join(' '),
+        textAlign: element.style.align,
+        color: element.style.color,
+        opacity: 1 - (element.style.transparency / 100),
+        letterSpacing: `${element.style.letterSpacing}px`,
+        lineHeight: element.style.lineHeight,
+        padding: `${TEXT_CONSTRAINTS.PADDING}px`,
+        margin: 0,
+        background: isSelected ? 'rgba(33, 150, 243, 0.1)' : 'transparent',
+        border: isSelected ? '1px solid #2196F3' : '1px solid transparent',
+        cursor: isDragging ? 'grabbing' : isEditing ? 'text' : 'move',
+        userSelect: isEditing ? 'text' : 'none',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        zIndex: isSelected ? 1000 : 1,
+        boxSizing: 'border-box',
+        outline: 'none'
+      };
+    };
   
-    const getTextStyle = () => ({
-      position: 'absolute',
-      left: `${element.position.x}px`,
-      top: `${element.position.y}px`,
-      fontFamily: element.style.fontFace,
-      fontSize: `${element.style.fontSize}px`,
-      fontWeight: element.style.bold ? 'bold' : 'normal',
-      fontStyle: element.style.italic ? 'italic' : 'normal',
-      textDecoration: [
-        element.style.underline ? 'underline' : '',
-        element.style.strike ? 'line-through' : ''
-      ].filter(Boolean).join(' '),
-      textAlign: element.style.align,
-      color: element.style.color,
-      opacity: 1 - (element.style.transparency / 100),
-      margin: `${element.style.margin}px`,
-      cursor: isDragging ? 'grabbing' : 'text',
-      backgroundColor: isSelected ? 'rgba(33, 150, 243, 0.1)' : 'transparent',
-      minWidth: '100px',
-      minHeight: '20px',
-      padding: '4px',
-      border: isSelected ? '1px solid #2196F3' : '1px solid transparent',
-      outline: 'none',
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      letterSpacing: `${element.style.letterSpacing || 0}px`,
-      lineHeight: element.style.lineHeight || 'normal',
-      textTransform: element.style.textTransform || 'none',
-      textShadow: element.style.textShadow || 'none',
-      zIndex: isSelected ? 1000 : 1,
-      userSelect: 'text'
-    });
-  
+    // Handle mouse down for dragging
     const handleMouseDown = (e) => {
       if (!elementRef.current.contains(e.target)) return;
-      
-      const rect = elementRef.current.getBoundingClientRect();
-      const isClickNearBorder = 
-        e.clientX - rect.left < 10 || 
-        rect.right - e.clientX < 10 || 
-        e.clientY - rect.top < 10 || 
-        rect.bottom - e.clientY < 10;
-  
-      if (isClickNearBorder) {
+      if (!isEditing) {
         setIsDragging(true);
+        const rect = elementRef.current.getBoundingClientRect();
         dragStartPos.current = {
-          x: e.clientX - element.position.x,
-          y: e.clientY - element.position.y
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
         };
         e.preventDefault();
       }
     };
-  
+
+    // Handle mouse move for dragging
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      
-      const deltaX = e.clientX - dragStartPos.current.x;
-      const deltaY = e.clientY - dragStartPos.current.y;
-      
-      // Use provided scale for position calculations
-      const newX = Math.max(
-        SAFE_ZONE_PX, 
-        Math.min(
-          SLIDE_WIDTH - 100 - SAFE_ZONE_PX, 
-          element.position.x + (deltaX / scale)
-        )
+
+      const parentRect = elementRef.current.parentElement.getBoundingClientRect();
+      const scale = parentRect.width / SLIDE_WIDTH;
+
+      const newX = (e.clientX - parentRect.left - dragStartPos.current.x) / scale;
+      const newY = (e.clientY - parentRect.top - dragStartPos.current.y) / scale;
+
+      const dimensions = dimensionsRef.current;
+      const { x, y } = constrainPosition(
+        newX,
+        newY,
+        dimensions.width,
+        dimensions.height
       );
-      
-      const newY = Math.max(
-        SAFE_ZONE_PX, 
-        Math.min(
-          SLIDE_HEIGHT - 50 - SAFE_ZONE_PX, 
-          element.position.y + (deltaY / scale)
-        )
-      );
-      
-      onPositionChange(id, { x: newX, y: newY });
+
+      onPositionChange(id, { x, y });
     };
-  
+
+    // Handle mouse up
     const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-  
-    // Handle text input while preserving cursor position
-    const handleInput = (e) => {
-      e.preventDefault();
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-      const cursorPosition = range.startOffset;
-      
-      onUpdate(id, { 
-        ...element, 
-        text: e.target.innerText
-      });
-  
-      // Restore cursor position after React re-render
-      requestAnimationFrame(() => {
-        if (elementRef.current) {
-          const textNode = elementRef.current.firstChild || elementRef.current;
-          const newRange = document.createRange();
-          
-          // Ensure cursor position doesn't exceed text length
-          const newPosition = Math.min(cursorPosition, textNode.length);
-          
-          try {
-            newRange.setStart(textNode, newPosition);
-            newRange.setEnd(textNode, newPosition);
-            
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-          } catch (err) {
-            console.warn('Error setting cursor position:', err);
-          }
-        }
-      });
-    };
-  
+      if (isDragging) {
+        setIsDragging(false);
+      }
+    }
+
+    // Set up drag event listeners
     useEffect(() => {
       if (isDragging) {
         window.addEventListener('mousemove', handleMouseMove);
@@ -297,6 +259,46 @@ const TextElement = ({
         };
       }
     }, [isDragging]);
+
+    // Update dimensions when text or style changes
+    useEffect(() => {
+      dimensionsRef.current = calculateTextDimensions(element, SLIDE_WIDTH);
+    }, [element.text, element.style, element.position.x]);
+
+    // Handle content changes
+    const handleInput = () => {
+      if (!elementRef.current) return;
+
+      // Get current selection range
+      const selection = window.getSelection();
+      const range = selection?.getRangeAt(0);
+      const cursorOffset = range?.startOffset || 0;
+
+      // Update the text
+      const newText = elementRef.current.textContent || '';
+      onUpdate(id, {
+        ...element,
+        text: newText
+      });
+      
+      // Restore cursor position after React re-render
+      requestAnimationFrame(() => {
+        if (elementRef.current) {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          const textNode = elementRef.current.firstChild || elementRef.current;
+          
+          try {
+            range.setStart(textNode, cursorOffset);
+            range.setEnd(textNode, cursorOffset);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+          } catch (e) {
+            console.warn('Could not restore cursor position');
+          }
+        }
+      });
+    };
   
     return (
       <div
@@ -306,12 +308,17 @@ const TextElement = ({
         onClick={(e) => {
           e.stopPropagation();
           onSelect(id);
+          if (!isEditing) {
+            setIsEditing(true);
+          }
         }}
-        contentEditable
+        contentEditable={isEditing}
         suppressContentEditableWarning={true}
         onInput={handleInput}
-        dangerouslySetInnerHTML={{ __html: element.text }}
-      />
+        onBlur={() => setIsEditing(false)}
+      >
+        {element.text}
+      </div>
     );
   };
   
@@ -451,9 +458,7 @@ const DEFAULT_IMAGE_CONFIG = {
     isSelected,
     onSelect,
     onUpdate,
-    onPositionChange,
-    isPreview = false,
-    scale = 1 
+    onPositionChange
   }) => {
     const elementRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -516,6 +521,9 @@ const DEFAULT_IMAGE_CONFIG = {
     const handleMouseMove = (e) => {
       if (!isDragging && !isResizing) return;
   
+      const parentRect = elementRef.current.parentElement.getBoundingClientRect();
+      const scale = parentRect.width / SLIDE_WIDTH;
+  
       if (isResizing) {
         const deltaX = (e.clientX - dragStartPos.current.x) / scale;
         let newWidth = Math.max(
@@ -526,8 +534,10 @@ const DEFAULT_IMAGE_CONFIG = {
           )
         );
   
+        // Maintain aspect ratio
         let newHeight = newWidth / aspectRatio;
         
+        // Check if height exceeds boundaries
         if (newHeight > DEFAULT_IMAGE_CONFIG.maxHeight) {
           newHeight = DEFAULT_IMAGE_CONFIG.maxHeight;
           newWidth = newHeight * aspectRatio;
@@ -657,112 +667,21 @@ const DEFAULT_IMAGE_CONFIG = {
     );
   };
   
-// SlideThumbnail component with preview
-const SlideThumbnail = ({ slide, isActive, onClick }) => {
-  // Calculate scale based on a fixed thumbnail width
-  const THUMBNAIL_WIDTH = 220;
-  const scale = THUMBNAIL_WIDTH / SLIDE_WIDTH;
-  
-  return (
-    <div
-      className={`relative cursor-pointer mb-2 rounded-lg overflow-hidden ${
-        isActive ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'
-      }`}
-      onClick={onClick}
-      style={{
-        width: THUMBNAIL_WIDTH,
-        height: THUMBNAIL_WIDTH * (SLIDE_HEIGHT / SLIDE_WIDTH),
-      }}
-    >
-      {/* Outer container for centering */}
-      <div className="absolute inset-0 bg-white">
-        {/* Scaling container */}
-        <div 
-          className="origin-center"
-          style={{
-            position: 'absolute',
-            width: SLIDE_WIDTH,
-            height: SLIDE_HEIGHT,
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-          }}
-        >
-          {/* Safe zone indicator - scaled automatically */}
-          <div
-            className="absolute border border-dashed border-gray-300 opacity-50 pointer-events-none"
-            style={{
-              top: SAFE_ZONE_PX,
-              left: SAFE_ZONE_PX,
-              right: SAFE_ZONE_PX,
-              bottom: SAFE_ZONE_PX,
-            }}
-          />
-
-          {/* Text Elements */}
-          {slide.textElements.map(element => (
-            <div
-              key={element.id}
-              style={{
-                position: 'absolute',
-                left: element.position.x,
-                top: element.position.y,
-                fontFamily: element.style.fontFace,
-                fontSize: `${element.style.fontSize}px`,
-                fontWeight: element.style.bold ? 'bold' : 'normal',
-                fontStyle: element.style.italic ? 'italic' : 'normal',
-                textDecoration: [
-                  element.style.underline ? 'underline' : '',
-                  element.style.strike ? 'line-through' : ''
-                ].filter(Boolean).join(' '),
-                textAlign: element.style.align,
-                color: element.style.color,
-                opacity: 1 - (element.style.transparency / 100),
-                whiteSpace: 'pre-wrap', // Changed: Preserve line breaks
-                overflow: 'hidden',
-                width: Math.min(       // Added: Constrain width
-                  element.style.width || SLIDE_WIDTH - element.position.x - SAFE_ZONE_PX * 2,
-                  SLIDE_WIDTH - element.position.x - SAFE_ZONE_PX * 2
-                ),
-                lineHeight: element.style.lineHeight || 1.2,
-                letterSpacing: `${element.style.letterSpacing || 0}px`,
-                padding: TEXT_CONSTRAINTS.PADDING,
-                maxHeight: SLIDE_HEIGHT - element.position.y - SAFE_ZONE_PX * 2, // Added: Constrain height
-              }}
-            >
-              {element.text}
-            </div>
-          ))}
-
-          {/* Image Elements */}
-          {slide.imageElements.map(element => (
-            <div
-              key={element.id}
-              style={{
-                position: 'absolute',
-                left: element.position.x,
-                top: element.position.y,
-                width: element.size.width,
-                height: element.size.height,
-                overflow: 'hidden',
-              }}
-            >
-              <img
-                src={element.src}
-                alt={element.alt || 'Slide image'}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          ))}
+  // SlideThumbnail component
+  const SlideThumbnail = ({ slide, isActive, onClick }) => {
+    return (
+      <div
+        className={`w-full aspect-[16/9] bg-white border rounded-lg p-2 cursor-pointer mb-2
+          ${isActive ? 'border-blue-500' : 'hover:border-gray-400'}`}
+        onClick={onClick}
+      >
+        <div className="w-full h-full bg-gray-50 flex items-center justify-center text-sm text-gray-500">
+          Slide {slide.id}
         </div>
       </div>
-    </div>
-  );
-};
-
+    );
+  };
+  
   // Sidebar Component
   const Sidebar = ({ slides, activeSlide, onAddSlide, onSelectSlide }) => {
     return (
@@ -791,81 +710,70 @@ const SlideThumbnail = ({ slide, isActive, onClick }) => {
   };
 
 // PowerPoint Export Function
-const convertColor = (cssColor) => {
-    return cssColor.replace('#', '');
-  };
-  
-  const exportToPowerPoint = async (slides) => {
+const exportToPowerPoint = async (textElements, imageElements) => {
     try {
       const pres = new pptxgen();
       
-      // Set 16:9 layout
+      // Set 16:9 aspect ratio
       pres.defineLayout({ 
         name: 'CUSTOM_16_9',
-        width: PPT_WIDTH,
-        height: PPT_HEIGHT
+        width: 10,
+        height: 5.625
       });
       pres.layout = 'CUSTOM_16_9';
   
-      // Export each slide
-      for (const slide of slides) {
-        const pptSlide = pres.addSlide();
+      const slide = pres.addSlide();
+  
+      // Export text elements
+      textElements.forEach(element => {
+        // Convert pixel positions to inches
+        const x = pixelsToInches(element.position.x);
+        const y = pixelsToInches(element.position.y);
         
-        // Add text elements
-        slide.textElements.forEach(element => {
-          const textOptions = {
-            x: pixelsToInches(element.position.x),
-            y: pixelsToInches(element.position.y),
-            w: pixelsToInches(SLIDE_WIDTH - element.position.x - SAFE_ZONE_PX),
-            h: 'auto',
-            fontSize: pixelsToPoints(element.style.fontSize),
-            fontFace: element.style.fontFace,
-            bold: element.style.bold,
-            italic: element.style.italic,
-            underline: element.style.underline ? { style: 'single' } : false,
-            strike: element.style.strike,
-            color: element.style.color.replace('#', ''),
-            align: element.style.align || 'left',
-            valign: 'top',
-            margin: 0,
-            wrap: true,
-            verticalAlign: 'top',
-            paraSpaceAfter: element.style.lineHeight ? 
-              (element.style.lineHeight - 1) * 100 : 0,
-            charSpacing: element.style.letterSpacing ? 
-              element.style.letterSpacing * 100 : 0
-          };
+        // Calculate maximum width based on position
+        //const maxWidth = 10 - x - pixelsToInches(SAFE_ZONE_PX);
+        
+        const textOptions = {
+          x: x,
+          y: y,
+          w: pixelsToInches(calculateTextDimensions(element, SLIDE_WIDTH).width),
+          h: pixelsToInches(calculateTextDimensions(element, SLIDE_WIDTH).height),
+          fontSize: pixelsToPoints(element.style.fontSize),
+          fontFace: element.style.fontFace,
+          bold: element.style.bold,
+          italic: element.style.italic,
+          underline: element.style.underline ? { style: 'single' } : false,
+          strike: element.style.strike,
+          color: element.style.color.replace('#', ''),
+          align: element.style.align || 'left',
+          valign: element.style.valign || 'top',
+          margin: 0,
+          wrap: true,
+          charSpacing: element.style.letterSpacing / 10,
+          lineSpacing: element.style.lineHeight,
+          transparency: element.style.transparency / 100
+        };
   
-          // Handle text transform
-          let textContent = element.text;
-          if (element.style.textTransform) {
-            switch(element.style.textTransform) {
-              case 'uppercase':
-                textContent = textContent.toUpperCase();
-                break;
-              case 'lowercase':
-                textContent = textContent.toLowerCase();
-                break;
-              case 'capitalize':
-                textContent = textContent.replace(/\b\w/g, l => l.toUpperCase());
-                break;
-            }
-          }
+        slide.addText(element.text, textOptions);
+      });
   
-          pptSlide.addText(textContent, textOptions);
-        });
-  
-        // Add image elements
-        slide.imageElements.forEach(element => {
-          pptSlide.addImage({
-            data: element.src,
-            x: pixelsToInches(element.position.x),
-            y: pixelsToInches(element.position.y),
+      // Export image elements
+      imageElements.forEach(element => {
+        const imageOptions = {
+          data: element.src,
+          x: pixelsToInches(element.position.x),
+          y: pixelsToInches(element.position.y),
+          w: pixelsToInches(element.size.width),
+          h: pixelsToInches(element.size.height),
+          sizing: {
+            type: 'contain',
             w: pixelsToInches(element.size.width),
             h: pixelsToInches(element.size.height)
-          });
-        });
-      }
+          }
+        };
+  
+        slide.addImage(imageOptions);
+      });
   
       await pres.writeFile({ fileName: 'presentation.pptx' });
       return true;
@@ -874,6 +782,7 @@ const convertColor = (cssColor) => {
       return false;
     }
   };
+  
   // Main Toolbar Component
   const Toolbar = ({ 
     selectedElement, 
@@ -945,27 +854,20 @@ const convertColor = (cssColor) => {
     );
   };
   
-// Main SlideEditor Component
-const SlideEditor = () => {
+  // Main SlideEditor Component
+  const SlideEditor = () => {
     // State Management
-    const [slides, setSlides] = useState([{
-      id: 1,
-      textElements: [],
-      imageElements: []
-    }]);
+    const [slides, setSlides] = useState([{ id: 1, elements: [] }]);
     const [activeSlide, setActiveSlide] = useState(1);
+    const [textElements, setTextElements] = useState([]);
+    const [imageElements, setImageElements] = useState([]);
     const [selectedElement, setSelectedElement] = useState(null);
     const [undoStack, setUndoStack] = useState([]);
     const [redoStack, setRedoStack] = useState([]);
   
-    // Get current slide's elements
-    const currentSlide = slides.find(slide => slide.id === activeSlide) || slides[0];
-    const textElements = currentSlide.textElements;
-    const imageElements = currentSlide.imageElements;
-  
     // Save state to undo stack
     const saveState = () => {
-      setUndoStack(prev => [...prev, slides]);
+      setUndoStack(prev => [...prev, { textElements, imageElements }]);
       setRedoStack([]);
     };
   
@@ -976,18 +878,20 @@ const SlideEditor = () => {
           if (e.shiftKey) {
             // Redo
             if (redoStack.length > 0) {
-              const newSlides = redoStack[redoStack.length - 1];
-              setSlides(newSlides);
+              const state = redoStack[redoStack.length - 1];
+              setTextElements(state.textElements);
+              setImageElements(state.imageElements);
               setRedoStack(prev => prev.slice(0, -1));
-              setUndoStack(prev => [...prev, slides]);
+              setUndoStack(prev => [...prev, { textElements, imageElements }]);
             }
           } else {
             // Undo
             if (undoStack.length > 0) {
-              const newSlides = undoStack[undoStack.length - 1];
-              setSlides(newSlides);
+              const state = undoStack[undoStack.length - 1];
+              setTextElements(state.textElements);
+              setImageElements(state.imageElements);
               setUndoStack(prev => prev.slice(0, -1));
-              setRedoStack(prev => [...prev, slides]);
+              setRedoStack(prev => [...prev, { textElements, imageElements }]);
             }
           }
         }
@@ -995,18 +899,7 @@ const SlideEditor = () => {
   
       window.addEventListener('keydown', handleKeyboard);
       return () => window.removeEventListener('keydown', handleKeyboard);
-    }, [undoStack, redoStack, slides]);
-  
-    // Handle element updates
-    const updateSlideElements = (slideId, newTextElements, newImageElements) => {
-      setSlides(prevSlides =>
-        prevSlides.map(slide =>
-          slide.id === slideId
-            ? { ...slide, textElements: newTextElements, imageElements: newImageElements }
-            : slide
-        )
-      );
-    };
+    }, [undoStack, redoStack, textElements, imageElements]);
   
     // Element Management Functions
     const handleAddText = () => {
@@ -1014,18 +907,14 @@ const SlideEditor = () => {
         id: Date.now(),
         type: 'text',
         text: 'Click to edit',
-        position: {
-          x: SAFE_ZONE_PX + 20,
-          y: SAFE_ZONE_PX + 20
+        position: { 
+          x: SAFE_ZONE_PX + 20, 
+          y: SAFE_ZONE_PX + 20 
         },
         style: { ...DEFAULT_TEXT_STYLE }
       };
   
-      updateSlideElements(
-        activeSlide,
-        [...textElements, newElement],
-        imageElements
-      );
+      setTextElements(prev => [...prev, newElement]);
       setSelectedElement(newElement.id);
       saveState();
     };
@@ -1036,6 +925,7 @@ const SlideEditor = () => {
   
       const reader = new FileReader();
       reader.onload = async (e) => {
+        // Get image dimensions
         const img = new Image();
         img.onload = () => {
           const aspectRatio = img.width / img.height;
@@ -1062,11 +952,7 @@ const SlideEditor = () => {
             alt: file.name
           };
   
-          updateSlideElements(
-            activeSlide,
-            textElements,
-            [...imageElements, newElement]
-          );
+          setImageElements(prev => [...prev, newElement]);
           setSelectedElement(newElement.id);
           saveState();
         };
@@ -1078,27 +964,25 @@ const SlideEditor = () => {
     const handleStyleChange = (property, value) => {
       if (!selectedElement) return;
   
-      const updatedElements = textElements.map(el =>
-        el.id === selectedElement
-          ? { ...el, style: { ...el.style, [property]: value } }
-          : el
+      setTextElements(elements =>
+        elements.map(el =>
+          el.id === selectedElement
+            ? { ...el, style: { ...el.style, [property]: value } }
+            : el
+        )
       );
-  
-      updateSlideElements(activeSlide, updatedElements, imageElements);
       saveState();
     };
   
     const handleElementUpdate = (id, updatedElement) => {
       if (updatedElement.type === 'text') {
-        const updatedElements = textElements.map(el =>
-          el.id === id ? updatedElement : el
+        setTextElements(elements =>
+          elements.map(el => el.id === id ? updatedElement : el)
         );
-        updateSlideElements(activeSlide, updatedElements, imageElements);
       } else {
-        const updatedElements = imageElements.map(el =>
-          el.id === id ? updatedElement : el
+        setImageElements(elements =>
+          elements.map(el => el.id === id ? updatedElement : el)
         );
-        updateSlideElements(activeSlide, textElements, updatedElements);
       }
       saveState();
     };
@@ -1106,52 +990,46 @@ const SlideEditor = () => {
     const handlePositionChange = (id, newPosition) => {
       const textElement = textElements.find(el => el.id === id);
       if (textElement) {
-        const updatedElements = textElements.map(el =>
-          el.id === id ? { ...el, position: newPosition } : el
+        setTextElements(elements =>
+          elements.map(el =>
+            el.id === id ? { ...el, position: newPosition } : el
+          )
         );
-        updateSlideElements(activeSlide, updatedElements, imageElements);
       } else {
-        const updatedElements = imageElements.map(el =>
-          el.id === id ? { ...el, position: newPosition } : el
+        setImageElements(elements =>
+          elements.map(el =>
+            el.id === id ? { ...el, position: newPosition } : el
+          )
         );
-        updateSlideElements(activeSlide, textElements, updatedElements);
       }
     };
   
     const handleDelete = () => {
       if (!selectedElement) return;
   
-      const updatedTextElements = textElements.filter(el => el.id !== selectedElement);
-      const updatedImageElements = imageElements.filter(el => el.id !== selectedElement);
-      
-      updateSlideElements(
-        activeSlide,
-        updatedTextElements,
-        updatedImageElements
+      setTextElements(elements =>
+        elements.filter(el => el.id !== selectedElement)
+      );
+      setImageElements(elements =>
+        elements.filter(el => el.id !== selectedElement)
       );
       setSelectedElement(null);
       saveState();
     };
   
-    const handleAddSlide = () => {
-      const newSlide = {
-        id: slides.length + 1,
-        textElements: [],
-        imageElements: []
-      };
-      setSlides([...slides, newSlide]);
-      setActiveSlide(newSlide.id);
-      setSelectedElement(null);
-    };
-  
-    
-
     const handleExport = async () => {
-      const success = await exportToPowerPoint(slides);
+      const success = await exportToPowerPoint(textElements, imageElements);
       if (success) {
         alert('Presentation exported successfully!');
       } else {
         alert('Failed to export presentation. Please try again.');
+      }
+    };
+  
+    // Clear selection when clicking on empty space
+    const handleSlideClick = (e) => {
+      if (e.target === e.currentTarget) {
+        setSelectedElement(null);
       }
     };
   
@@ -1173,14 +1051,21 @@ const SlideEditor = () => {
           <Sidebar
             slides={slides}
             activeSlide={activeSlide}
-            onAddSlide={handleAddSlide}
-            onSelectSlide={(id) => {
-              setActiveSlide(id);
-              setSelectedElement(null);
+            onAddSlide={() => {
+              const newSlide = {
+                id: slides.length + 1,
+                elements: []
+              };
+              setSlides([...slides, newSlide]);
+              setActiveSlide(newSlide.id);
             }}
+            onSelectSlide={setActiveSlide}
           />
-
-          <div className="flex-1 overflow-auto" onClick={() => setSelectedElement(null)}>
+  
+          <div 
+            className="flex-1 overflow-auto"
+            onClick={handleSlideClick}
+          >
             <SlideContainer>
               {textElements.map(element => (
                 <TextElement
@@ -1210,5 +1095,5 @@ const SlideEditor = () => {
       </div>
     );
   };
-  
-  export default SlideEditor;
+
+export default SlideEditor;
